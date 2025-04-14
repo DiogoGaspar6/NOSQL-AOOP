@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <h1>MongoDB with Netlify Functions</h1>
+  <ul id="movies"></ul>
+  <script>
+      (async () => {
+          let results = await fetch("netlify/functions/get_movies/get_movies.mjs").then(response => response.json());
+          results.forEach(result => {
+              const listItem = document.createElement("li");
+              listItem.innerText = result.title;
+              document.getElementById("movies").appendChild(listItem);
+          });
+      })();
+  </script>
+</html>
+</body>
+</html>
