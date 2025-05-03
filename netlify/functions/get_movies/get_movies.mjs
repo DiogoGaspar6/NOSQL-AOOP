@@ -12,10 +12,28 @@ const getMovies = async ({ page = 1, limit = 10 }) => {
         const skip = (page - 1) * limit;
 
         const results = await collection.find({}).skip(skip).limit(limit).toArray();
-        return results;
+        return {
+            statusCode: 200,
+            headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            body: JSON.stringify(results),
+        };
     } catch (error) {
-        return { statusCode: 500, body: error.toString() };
+        return {
+            statusCode: 500,
+            headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            body: JSON.stringify({ error: error.toString() }),
+        };
     }
 };
 
-export { getMovies };
+// Exporta como handler para o Netlify reconhecer
+export const handler = async (event) => {
+    const { page = 1, limit = 10 } = event.queryStringParameters || {};
+    return await getMovies({ page: parseInt(page), limit: parseInt(limit) });
+};

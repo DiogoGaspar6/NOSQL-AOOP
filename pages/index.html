@@ -4,13 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CineWorld</title>
-    <script src="../scripts/index.js"></script>
+    <script src="../scripts/index.js" defer></script>
     <link rel="stylesheet" href="../styles/index.css">
   </head>
   <body>
     <div class="container">
       <h1><span class="icon">🎬</span> CineWorld</h1>
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Pesquise o filme..." />
+        <button id="searchButton">Pesquisar</button>
+      </div>
       <div id="movies"></div>
     </div>
   </body>
+  <footer>
+    <p>&copy; 2024 CineWorld</p>
+  </footer>
 </html>

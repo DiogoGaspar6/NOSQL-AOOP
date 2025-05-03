@@ -13,27 +13,16 @@ server.get('/', (req, res) => {
   res.sendFile(__dirname + '/pages/index.html');
 });
 
-// MIDDLEWARE 
-
-server.get('/movies', async (req, res) => {
-  try {
-    const { getMovies } = await import('./netlify/functions/get_movies/get_movies.mjs');
-    const page = parseInt(req.query.page || "1");
-    const limit = parseInt(req.query.limit || "10");
-
-    const movies = await getMovies({ page, limit });
-    res.json(movies);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+// Nova rota para detalhes
+server.get('/details', (req, res) => {
+  res.sendFile(__dirname + '/pages/details.html');
 });
 
 const startServer = async () => {
   try {
     await connect();
     server.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
+      console.log(`Server listening on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error('Failed to connect to database:', error);
