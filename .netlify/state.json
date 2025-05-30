@@ -2,20 +2,20 @@
 	"siteId": "d640061d-5871-48be-ae3e-0a3da41219c9",
 	"geolocation": {
 		"data": {
-			"city": "Lagos da Beira",
+			"city": "Porto",
 			"country": {
 				"code": "PT",
 				"name": "Portugal"
 			},
 			"subdivision": {
-				"code": "06",
-				"name": "Coimbra"
+				"code": "13",
+				"name": "Porto"
 			},
 			"timezone": "Europe/Lisbon",
-			"latitude": 40.3713,
-			"longitude": -7.83,
-			"postalCode": "3405-270"
+			"latitude": 41.1459,
+			"longitude": -8.6169,
+			"postalCode": "4200-001"
 		},
-		"timestamp": 1746262329144
+		"timestamp": 1746526174182
 	}
 }

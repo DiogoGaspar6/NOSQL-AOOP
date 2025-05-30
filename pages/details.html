@@ -4,11 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Detalhes do Filme</title>
+    <link rel="shortcut icon" href="../assets/images/favicon.png" type="image/x-icon">
     <link rel="stylesheet" href="../styles/index.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <div class="container">
       <div id="movie-details"></div>
+      <div class="comments-section">
+        <h3>Comentários</h3>
+        <div class="comment-form">
+          <textarea id="commentText" placeholder="Deixe o seu comentário..."></textarea>
+          <button id="submitComment">Enviar</button>
+        </div>
+        <div id="commentsList"></div>
+      </div>
       <a href="/" class="back-button">Voltar</a>
     </div>
     <script src="../scripts/details.js" defer></script>

@@ -33,14 +33,22 @@ const loadMovies = async () => {
   showSkeletonLoading();
 
   try {
-    // Faz a requisição para a função Netlify
-    const movies = await fetch(`http://localhost:8888/.netlify/functions/get_movies?page=${currentPage}&limit=${limit}`)
-      .then((res) => res.json());
+    const response = await fetch(`/.netlify/functions/get_movies?page=${currentPage}&limit=${limit}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!Array.isArray(data)) {
+      throw new Error('Dados recebidos não estão no formato esperado');
+    }
 
     const moviesContainer = document.getElementById("movies");
-
     removeSkeletonLoading();
-    movies.forEach((movie) => {
+
+    data.forEach((movie) => {
       const movieElement = document.createElement("div");
       movieElement.classList.add("movie");
 
@@ -58,9 +66,12 @@ const loadMovies = async () => {
     });
 
     currentPage++;
-    isLoading = false;
   } catch (error) {
     console.error("Erro ao carregar os filmes:", error);
+    const moviesContainer = document.getElementById("movies");
+    removeSkeletonLoading();
+    moviesContainer.innerHTML = '<p>Erro ao carregar os filmes. Por favor, tente novamente mais tarde.</p>';
+  } finally {
     isLoading = false;
   }
 };
@@ -80,7 +91,7 @@ const searchMovies = async (query) => {
   showSkeletonLoading();
 
   try {
-    const movies = await fetch(`http://localhost:8888/.netlify/functions/search_movies?query=${encodeURIComponent(query)}`)
+    const movies = await fetch(`/.netlify/functions/search_movies?query=${encodeURIComponent(query)}`)
       .then((res) => res.json());
 
     const moviesContainer = document.getElementById("movies");

@@ -13,11 +13,6 @@ server.get('/', (req, res) => {
   res.sendFile(__dirname + '/pages/index.html');
 });
 
-// Nova rota para detalhes
-server.get('/details', (req, res) => {
-  res.sendFile(__dirname + '/pages/details.html');
-});
-
 const startServer = async () => {
   try {
     await connect();

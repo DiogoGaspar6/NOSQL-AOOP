@@ -1,11 +1,12 @@
-import { MongoClient } from "mongodb";
-
-const mongoClient = new MongoClient(process.env.MONGODB_URI);
-const clientPromise = mongoClient.connect();
+import { client } from "../../../scripts/database.js";
 
 export const handler = async (event) => {
   try {
     const { query } = event.queryStringParameters;
+
+    if (!client.topology || !client.topology.isConnected()) {
+      await client.connect();
+    }
 
     if (!query) {
       return {
@@ -18,7 +19,7 @@ export const handler = async (event) => {
       };
     }
 
-    const database = (await clientPromise).db(process.env.DBNAME);
+    const database = client.db(process.env.DBNAME);
     const collection = database.collection(process.env.MONGODB_COLLECTION);
 
     const movies = await collection
