@@ -2,20 +2,20 @@
 	"siteId": "d640061d-5871-48be-ae3e-0a3da41219c9",
 	"geolocation": {
 		"data": {
-			"city": "Porto",
+			"city": "Viana do Castelo",
 			"country": {
 				"code": "PT",
 				"name": "Portugal"
 			},
 			"subdivision": {
-				"code": "13",
-				"name": "Porto"
+				"code": "16",
+				"name": "Viana do Castelo"
 			},
 			"timezone": "Europe/Lisbon",
-			"latitude": 41.1459,
-			"longitude": -8.6169,
-			"postalCode": "4200-001"
+			"latitude": 41.6929,
+			"longitude": -8.8391,
+			"postalCode": "4900-700"
 		},
-		"timestamp": 1746526174182
+		"timestamp": 1750079228300
 	}
 }

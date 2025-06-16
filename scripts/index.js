@@ -76,7 +76,7 @@ const loadMovies = async () => {
   }
 };
 
-// Detecta o scroll para carregar mais filmes
+
 const handleScroll = () => {
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
 

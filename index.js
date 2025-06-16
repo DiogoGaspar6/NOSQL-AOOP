@@ -23,12 +23,12 @@ server.get('/chat', (req, res) => {
 // Endpoint do chatbot
 server.post('/api/chat', async (req, res) => {
   try {
-    const { message, userType = 'casual' } = req.body;
+    const { message, userType } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'Mensagem é obrigatória' });
     }
 
-    const response = await chatbot.processQuery(message, userType);
+    const response = await chatbot.processQuery(message, userType || 'casual');
     res.json({ response });
   } catch (error) {
     console.error('Erro no endpoint do chatbot:', error);

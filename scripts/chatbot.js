@@ -3,249 +3,182 @@ const axios = require('axios');
 require('dotenv').config();
 
 class MovieChatbot {
-    constructor() {
-        this.db = client.db(process.env.DBNAME);
-        this.collection = this.db.collection(process.env.MONGODB_COLLECTION);
-        this.userTypes = {
-            casual: {
-                systemMessage: "Você é um assistente de filmes amigável e acessível, focado em recomendações populares e entretenimento."
-            },
-            critic: {
-                systemMessage: "Você é um crítico de cinema experiente, focado em análise técnica, direção, roteiro e aspectos artísticos."
-            },
-            enthusiast: {
-                systemMessage: "Você é um entusiasta de cinema, especializado em gêneros específicos e filmes cult, com conhecimento profundo de cinema."
-            }
+  constructor() {
+    this.db = client.db(process.env.DBNAME);
+    this.collection = this.db.collection(process.env.MONGODB_COLLECTION);
+    this.userTypes = {
+      casual: {
+        systemMessage: "Você é um assistente de filmes amigável e acessível. Ajude o utilizador a encontrar bons filmes e responda de forma natural, entusiasmada e sempre em português de Portugal."
+      },
+      critic: {
+        systemMessage: "Você é um crítico de cinema experiente. Analise tecnicamente os filmes e faça recomendações criteriosas, sempre respondendo em português de Portugal."
+      },
+      enthusiast: {
+        systemMessage: "Você é um entusiasta de cinema especializado. Compartilhe curiosidades e contexto histórico de forma apaixonada, usando sempre português de Portugal."
+      }
+    };
+
+    this.apiKey = process.env.GEMINI_API_KEY;
+    this.apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  }
+
+  async processQuery(query, userType) {
+    try {
+      const directTitleMatch = await this.collection.findOne({
+        title: { $regex: new RegExp(query, 'i') }
+      });
+
+      if (directTitleMatch) {
+        const responsePrompt = {
+          query,
+          movies: [directTitleMatch],
+          intent: 'info',
+          systemMessage: this.userTypes[userType].systemMessage
         };
-        
-        this.model = process.env.HUGGINGFACE_MODEL || 'pierreguillou/gpt2-small-portuguese';
+        const llmResponse = await this.getLLMResponse(responsePrompt, userType);
+        return this.formatFinalResponse(llmResponse, [directTitleMatch], userType);
+      }
+
+      let keywords = await this.extractKeywords(query);
+
+      if (!Array.isArray(keywords) || keywords.length === 0 || keywords.every(k => k.length < 3)) {
+        console.warn('⚠️ Keywords não confiáveis, usando fallback');
+        keywords = ['filme', 'culto', 'incompreendido'];
+      }
+
+      console.log('🔎 Keywords extraídas:', keywords);
+
+      const movies = await this.searchMoviesByKeywords(keywords);
+
+      console.log('🎬 Filmes encontrados:', movies.map(m => m.title));
+
+      if (!movies.length) {
+        return 'Desculpe, não encontrei filmes que correspondam à sua busca. Pode tentar reformular a pergunta?';
+      }
+
+      const responsePrompt = {
+        query,
+        movies,
+        intent: 'search',
+        systemMessage: this.userTypes[userType].systemMessage
+      };
+
+      const llmResponse = await this.getLLMResponse(responsePrompt, userType);
+      return this.formatFinalResponse(llmResponse, movies, userType);
+
+    } catch (error) {
+      console.error('❌ Erro ao processar query:', error);
+      return 'Desculpe, não consegui processar sua pergunta. Pode tentar reformular?';
     }
+  }
 
-    async processQuery(query, userType = 'casual') {
-        try {
-            const lowerQuery = query.toLowerCase();
-            
-            let movies = [];
-            if (lowerQuery.includes('gostei') || lowerQuery.includes('similar') || lowerQuery.includes('como')) {
-                movies = await this.getSimilarMovies(query);
-            } else if (lowerQuery.includes('cult') || lowerQuery.includes('seguidores') || lowerQuery.includes('seguindo')) {
-                movies = await this.getCultMovies();
-            } else if (lowerQuery.includes('90') || lowerQuery.includes('anos 90') || lowerQuery.includes('década')) {
-                movies = await this.getHiddenGemsByDecade('90');
-            } else {
-                movies = await this.getGeneralRecommendation(query, userType);
-            }
+  async extractKeywords(query) {
+    const prompt = {
+      systemMessage: `Você é um assistente especializado em perguntas sobre filmes.
+Extraia até 5 palavras-chave relevantes da pergunta a seguir.
+Responda apenas com uma lista JSON simples como: ["ação", "futurista", "espaço", "aventura"]`,
+      query
+    };
 
-            if (!movies || movies.length === 0) {
-                return 'Desculpe, não encontrei filmes que correspondam à sua busca.';
-            }
-
-            const prompt = this.preparePrompt(query, movies, userType);
-            const llmResponse = await this.getLLMResponse(prompt, userType);
-            return this.formatFinalResponse(llmResponse, movies, userType);
-        } catch (error) {
-            console.error('Erro ao processar query:', error);
-            return 'Desculpe, não consegui processar sua pergunta. Pode tentar reformular?';
-        }
+    try {
+      const response = await this.getLLMResponse(prompt);
+      const clean = response.replace(/```json\n?|```|\n/g, '').trim();
+      return JSON.parse(clean);
+    } catch (error) {
+      console.error('❌ Erro ao extrair palavras-chave:', error);
+      return query.split(/\s+/).slice(0, 5);
     }
+  }
 
-    async getLLMResponse(prompt, userType) {
-        try {
-            // Usando Hugging Face Inference API
-            const response = await axios.post(
-                `https://api-inference.huggingface.co/models/${this.model}`,
-                {
-                    inputs: this.formatPromptForHuggingFace(prompt, userType),
-                    parameters: {
-                        max_length: 500,
-                        temperature: 0.7,
-                        return_full_text: false
-                    }
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
+  async searchMoviesByKeywords(keywords) {
+    if (!Array.isArray(keywords) || !keywords.length) return [];
 
-            return response.data[0].generated_text;
-        } catch (error) {
-            console.error('Erro ao chamar Hugging Face API:', error);
-            return null;
-        }
-    }
+    const regexFilters = keywords.map(kw => ({
+      $or: [
+        { title: { $regex: kw, $options: 'i' } },
+        { plot: { $regex: kw, $options: 'i' } },
+        { genres: { $regex: kw, $options: 'i' } }
+      ]
+    }));
 
-    formatPromptForHuggingFace(prompt, userType) {
-        const systemMessage = this.userTypes[userType].systemMessage;
-        const movieList = prompt.movies.map(movie => 
-            `- ${movie.title} (${movie.year}): ${movie.description || 'Sem descrição'}`
+    return await this.collection.find({ $or: regexFilters }).sort({ 'imdb.rating': -1 }).limit(6).toArray();
+  }
+
+  async getLLMResponse(prompt, userType) {
+    try {
+      let inputText = '';
+
+      if (prompt.systemMessage?.includes('Extraia até 5 palavras-chave')) {
+        inputText = `${prompt.systemMessage}\n\nPergunta: ${prompt.query}`;
+      } else if (prompt.movies) {
+        const movieList = prompt.movies.map(movie =>
+          `- ${movie.title} (${movie.year}): ${movie.genres?.join(', ') || 'N/A'}, Avaliação: ${movie.imdb?.rating ?? 'N/A'}/10`
         ).join('\n');
 
-        return `${systemMessage}\n\nContexto dos filmes:\n${movieList}\n\nPergunta do usuário: ${prompt.query}\n\nResposta:`;
-    }
+        const tone = userType === 'critic'
+          ? 'analítica e técnica'
+          : userType === 'enthusiast'
+            ? 'apaixonada e cheia de curiosidades'
+            : 'simpática e acessível';
 
-    preparePrompt(query, movies, userType) {
-        const movieContext = movies.map(movie => ({
-            title: movie.title,
-            year: movie.year,
-            genre: movie.genre,
-            rating: movie.rating,
-            description: movie.description,
-            director: movie.director,
-            writer: movie.writer,
-            technicalScore: movie.technicalScore,
-            subgenres: movie.subgenres,
-            influences: movie.influences
-        }));
+        inputText = `
+                ${prompt.systemMessage}
 
-        return {
-            query,
-            movies: movieContext,
-            userType,
-            systemMessage: this.userTypes[userType].systemMessage
-        };
-    }
+                Por favor, responda sempre em português de Portugal.
 
-    formatFinalResponse(llmResponse, movies, userType) {
-        if (!llmResponse) {
-            return this.formatMovieResponse(movies, 'Recomendações baseadas na sua busca:', userType);
+                Com base nos seguintes filmes, responda à pergunta do utilizador com uma abordagem ${tone}:
+
+                Filmes disponíveis:
+                ${movieList}
+
+                Pergunta do utilizador: "${prompt.query}"
+            `.trim();
+      } else {
+        inputText = prompt.query;
+      }
+
+      console.log('📤 Prompt enviado para Gemini:\n', inputText);
+
+      const response = await axios.post(
+        `${this.apiUrl}?key=${this.apiKey}`,
+        {
+          contents: [{ parts: [{ text: inputText }] }]
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 30000
         }
+      );
 
-        let response = llmResponse + '\n\n';
-        response += this.formatMovieResponse(movies, 'Detalhes dos filmes:', userType);
-        return response;
+      const content = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) throw new Error('Resposta inválida da API');
+
+      console.log('📥 Resposta do Gemini:\n', content.trim());
+      return content.trim();
+
+    } catch (error) {
+      console.error('❌ Erro ao chamar Gemini API:', error);
+      return null;
     }
+  }
 
-    async getSimilarMovies(query) {
-        const movieName = this.extractMovieName(query);
-        if (!movieName) {
-            return 'Por favor, mencione um filme para que eu possa encontrar recomendações similares.';
-        }
+  formatMovieResponse(movies, header, userType) {
+    const details = movies.map(movie =>
+      `🎬 ${movie.title} (${movie.year}) - ${movie.genres?.join(', ') || 'Género não especificado'}\n` +
+      `⭐ Avaliação: ${movie.imdb?.rating ?? 'N/A'}\n` +
+      `📖 ${movie.fullplot || movie.plot || 'Sem descrição disponível.'}`
+    ).join('\n\n');
 
-        const referenceMovie = await this.collection.findOne({
-            title: { $regex: movieName, $options: 'i' }
-        });
+    return `${header}\n\n${details}`;
+  }
 
-        if (!referenceMovie) {
-            return `Não encontrei o filme "${movieName}". Pode verificar o nome e tentar novamente?`;
-        }
-
-        const similarMovies = await this.collection.find({
-            _id: { $ne: referenceMovie._id },
-            $or: [
-                { genre: referenceMovie.genre },
-                { rating: { $gte: referenceMovie.rating - 1, $lte: referenceMovie.rating + 1 } }
-            ]
-        })
-        .sort({ rating: -1 })
-        .limit(5)
-        .toArray();
-
-        return this.formatMovieResponse(similarMovies, `Filmes similares a "${referenceMovie.title}":`);
+  formatFinalResponse(llmResponse, movies, userType) {
+    if (!llmResponse || typeof llmResponse !== 'string' || llmResponse.length < 5) {
+      return this.formatMovieResponse(movies, 'Resultado gerado com base nos dados disponíveis:', userType);
     }
-
-    async getCultMovies() {
-        const cultMovies = await this.collection.find({
-            rating: { $lt: 7 },
-            $or: [
-                { tags: { $in: ['cult', 'culto', 'underground'] } },
-                { description: { $regex: 'cult|culto|underground', $options: 'i' } }
-            ]
-        })
-        .sort({ rating: 1 })
-        .limit(5)
-        .toArray();
-
-        return this.formatMovieResponse(cultMovies, 'Filmes cult com avaliações mais baixas:');
-    }
-
-    async getHiddenGemsByDecade(decade) {
-        const startYear = parseInt(decade + '0');
-        const endYear = startYear + 9;
-
-        const hiddenGems = await this.collection.find({
-            year: { $gte: startYear, $lte: endYear },
-            rating: { $gte: 7.5 },
-            $or: [
-                { tags: { $in: ['hidden gem', 'escondido', 'pérola'] } },
-                { description: { $regex: 'hidden gem|escondido|pérola', $options: 'i' } }
-            ]
-        })
-        .sort({ rating: -1 })
-        .limit(5)
-        .toArray();
-
-        return this.formatMovieResponse(hiddenGems, `Pérolas escondidas dos anos ${decade}:`);
-    }
-
-    async getGeneralRecommendation(query, userType) {
-        const systemMessage = this.userTypes[userType].systemMessage;
-        
-        const movies = await this.collection
-            .find({
-                $or: [
-                    { title: { $regex: query, $options: 'i' } },
-                    { description: { $regex: query, $options: 'i' } },
-                    { tags: { $regex: query, $options: 'i' } }
-                ]
-            })
-            .limit(5)
-            .toArray();
-        
-        return this.formatMovieResponse(movies, 'Recomendações baseadas na sua busca:', userType);
-    }
-
-    formatMovieResponse(movies, header, userType = 'casual') {
-        if (movies.length === 0) {
-            return 'Desculpe, não encontrei filmes que correspondam à sua busca.';
-        }
-
-        let response = `${header}\n\n`;
-        movies.forEach((movie, index) => {
-            response += `${index + 1}. ${movie.title} (${movie.year})\n`;
-          
-            switch(userType) {
-                case 'critic':
-                    response += `   Direção: ${movie.director || 'N/A'}\n`;
-                    response += `   Roteiro: ${movie.writer || 'N/A'}\n`;
-                    response += `   Análise Técnica: ${movie.technicalScore || 'N/A'}\n`;
-                    break;
-                case 'enthusiast':
-                    response += `   Gênero: ${movie.genre}\n`;
-                    response += `   Subgêneros: ${movie.subgenres || 'N/A'}\n`;
-                    response += `   Influências: ${movie.influences || 'N/A'}\n`;
-                    break;
-                default:
-                    response += `   Gênero: ${movie.genre}\n`;
-                    response += `   Avaliação: ${movie.rating}/10\n`;
-                    response += `   ${movie.shortDescription || ''}\n`;
-            }
-            response += '\n';
-        });
-
-        return response;
-    }
-
-    extractMovieName(query) {
-        const movieMatch = query.match(/"([^"]+)"/);
-        if (movieMatch) {
-            return movieMatch[1];
-        }
-        
-        const keywords = ['gostei de', 'similar a', 'como', 'parecido com'];
-        for (const keyword of keywords) {
-            if (query.toLowerCase().includes(keyword)) {
-                const parts = query.split(keyword);
-                if (parts[1]) {
-                    return parts[1].trim();
-                }
-            }
-        }
-        
-        return null;
-    }
+    return llmResponse.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  }
 }
 
-module.exports = MovieChatbot; 
+
+module.exports = MovieChatbot;
