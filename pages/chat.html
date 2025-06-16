@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot de Filmes</title>
+    <link rel="stylesheet" href="../styles/chat.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>Assistente de Filmes</h1>
+            <p>Pergunte sobre filmes, avaliações e recomendações</p>
+            <div class="user-type-selector">
+                <label for="userType">Selecione seu perfil:</label>
+                <select id="userType">
+                    <option value="casual">Cinéfilo Casual</option>
+                    <option value="critic">Crítico de Cinema</option>
+                    <option value="enthusiast">Entusiasta de Gêneros</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                Olá! Sou seu assistente de filmes. Como posso ajudar você hoje?
+            </div>
+        </div>
+
+        <div class="chat-input-container">
+            <input type="text" id="userInput" placeholder="Digite sua pergunta...">
+            <button id="sendButton">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const userTypeSelect = document.getElementById('userType');
+
+        function addMessage(message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            messageDiv.textContent = message;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, true);
+            userInput.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        message,
+                        userType: userTypeSelect.value
+                    })
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    addMessage('Desculpe, ocorreu um erro. Por favor, tente novamente.');
+                } else {
+                    addMessage(data.response);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                addMessage('Desculpe, ocorreu um erro. Por favor, tente novamente.');
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html> 
