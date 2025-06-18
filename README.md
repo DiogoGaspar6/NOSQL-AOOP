@@ -45,7 +45,7 @@ O **Movie Chatbot** é um assistente inteligente de filmes que combina a potênc
 | **🎭 Crítico** | Análise técnica e criteriosa | "Este filme apresenta uma narrativa complexa com..." |
 | **🎪 Entusiasta** | Curiosidades e contexto histórico | "Sabias que este filme foi inspirado em..." |
 
-### 🔍 Capacidades de Busca
+### 🔍 Capacidades de procura
 
 - **Busca por Título**: "Inception", "Star Wars"
 - **Busca por Género**: "filmes de ação", "comédias românticas"
