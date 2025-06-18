@@ -46,11 +46,7 @@ class MovieChatbot {
         keywords = ['filme', 'culto', 'incompreendido'];
       }
 
-      console.log('🔎 Keywords extraídas:', keywords);
-
       const movies = await this.searchMoviesByKeywords(keywords);
-
-      console.log('🎬 Filmes encontrados:', movies.map(m => m.title));
 
       if (!movies.length) {
         return 'Desculpe, não encontrei filmes que correspondam à sua busca. Pode tentar reformular a pergunta?';
@@ -67,7 +63,6 @@ class MovieChatbot {
       return this.formatFinalResponse(llmResponse, movies, userType);
 
     } catch (error) {
-      console.error('❌ Erro ao processar query:', error);
       return 'Desculpe, não consegui processar sua pergunta. Pode tentar reformular?';
     }
   }
@@ -85,7 +80,6 @@ Responda apenas com uma lista JSON simples como: ["ação", "futurista", "espaç
       const clean = response.replace(/```json\n?|```|\n/g, '').trim();
       return JSON.parse(clean);
     } catch (error) {
-      console.error('❌ Erro ao extrair palavras-chave:', error);
       return query.split(/\s+/).slice(0, 5);
     }
   }
@@ -137,8 +131,6 @@ Responda apenas com uma lista JSON simples como: ["ação", "futurista", "espaç
         inputText = prompt.query;
       }
 
-      console.log('📤 Prompt enviado para Gemini:\n', inputText);
-
       const response = await axios.post(
         `${this.apiUrl}?key=${this.apiKey}`,
         {
@@ -153,11 +145,9 @@ Responda apenas com uma lista JSON simples como: ["ação", "futurista", "espaç
       const content = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!content) throw new Error('Resposta inválida da API');
 
-      console.log('📥 Resposta do Gemini:\n', content.trim());
       return content.trim();
 
     } catch (error) {
-      console.error('❌ Erro ao chamar Gemini API:', error);
       return null;
     }
   }
